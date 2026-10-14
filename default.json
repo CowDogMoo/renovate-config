@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   // Shared base for CowDogMoo and l50 repos: github>CowDogMoo/renovate-config
-  "description": "Shared Renovate defaults: minor/patch/digest automerge via PRs, majors left for review, a 3-day release cooldown, and rebases whenever a branch falls behind its base branch",
+  "description": "Shared Renovate defaults: minor/patch/digest and GitHub Actions major automerge via PRs, other majors left for review, a 3-day release cooldown, and rebases whenever a branch falls behind its base branch",
   "extends": [
     "config:recommended",
     ":disableRateLimiting",
@@ -26,8 +26,14 @@
   "internalChecksFilter": "strict",
   "packageRules": [
     {
-      "description": "Automerge minor, patch, digest and pin updates for every manager; majors stay manual",
+      "description": "Automerge minor, patch, digest and pin updates for every manager",
       "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "automerge": true
+    },
+    {
+      "description": "Automerge GitHub Actions majors too; pre-commit, Galaxy and every other manager's majors stay manual",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["major"],
       "automerge": true
     },
     {

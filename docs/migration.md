@@ -43,8 +43,9 @@ Counts are out of 25 `.github/renovate.json5` files.
 Automerge was the most copy-pasted and least consistent part: every repo
 listed its own per-manager allowlist, and 17 of them automerge GitHub Actions
 majors (5 also automerge pre-commit majors, 3 also Galaxy majors). The default preset
-replaces all of that with one rule: minor, patch, digest and pin updates
-automerge for every manager, and majors wait for review.
+replaces all of that with two rules: minor, patch, digest and pin updates
+automerge for every manager, and GitHub Actions majors automerge too. Other
+majors, including pre-commit and Galaxy, wait for review.
 
 Version envs in workflows were the other repeated block. GitHub code search
 finds `GO_VERSION` in at least 10 of these repos' workflows and
@@ -86,27 +87,27 @@ drops the `configurationFile` double load.
 
 | Repo | Presets | Remaining local overrides |
 | --- | --- | --- |
-| CowDogMoo/ansible-collection-workstation | default, ansible-collection | Keep: mise `host_vars` and asdf regex managers; `host_vars` no-automerge + 7-day rule. Drop: gitAuthor, pip patterns, PYTHON/GO/TASK_VERSION managers, automerge rules. Change: Galaxy and Actions majors no longer automerge. |
+| CowDogMoo/ansible-collection-workstation | default, ansible-collection | Keep: mise `host_vars` and asdf regex managers; `host_vars` no-automerge + 7-day rule. Drop: gitAuthor, pip patterns, PYTHON/GO/TASK_VERSION managers, automerge rules. Change: Galaxy majors no longer automerge. |
 | CowDogMoo/bcp | default, go | Keep: test dependencies group. Drop: go.mod and `.tool-versions` Go regexes (gomod and asdf managers read them natively), GO_VERSION/GOLANGCI_VERSION/go install managers, golang group, concurrency limits. Change: `internalChecksFilter` goes from `flexible` to `strict`. |
 | CowDogMoo/homeassistant | default | Keep: its four `.github/renovate/*.json5` includes, schedule, dashboard approval, Home Assistant major approval, vulnerabilityAlerts. Its own 3-day rule becomes redundant. Workflow: add `BOT_APP_ID`/`BOT_APP_PRIVATE_KEY` first. |
 | CowDogMoo/squad | default, go | Keep: indirect module handling, golang minor/major no-automerge, moby group, OSV alerts, `constraintsFiltering`. Drop: its `# renovate:` annotation manager for PYTHON_VERSION (the default preset tracks it; keeping both extracts it twice). |
-| CowDogMoo/squad-agents | default | Change: Actions and pre-commit majors no longer automerge. |
+| CowDogMoo/squad-agents | default | Change: pre-commit majors no longer automerge. |
 | CowDogMoo/squad-skills | default | Keep: no automerge under `.github/`, GitHub-owned action rule, runner major approval. |
-| CowDogMoo/taskfile-templates | default | Keep: `# renovate:` annotation manager for envs other than GO/PYTHON_VERSION. Change: Actions and pre-commit majors no longer automerge. |
-| CowDogMoo/terraform-cowdogmoo | default, go | Keep: terraform manager, tfstate `ignorePaths`, terraform-docs `postUpgradeTasks` (pass `allowed-post-upgrade-commands` to the workflow), annotation manager. Change: Actions and pre-commit majors no longer automerge. |
+| CowDogMoo/taskfile-templates | default | Keep: `# renovate:` annotation manager for envs other than GO/PYTHON_VERSION. Change: pre-commit majors no longer automerge. |
+| CowDogMoo/terraform-cowdogmoo | default, go | Keep: terraform manager, tfstate `ignorePaths`, terraform-docs `postUpgradeTasks` (pass `allowed-post-upgrade-commands` to the workflow), annotation manager. Change: pre-commit majors no longer automerge. |
 | CowDogMoo/throwingshade | default, go | Keep: merge-queue `automergeStrategy`, indirect group, test deps group. Drop: GO_VERSION and go install managers. Workflow: add `BOT_APP_ID`/`BOT_APP_PRIVATE_KEY` first. |
 | CowDogMoo/Walls-of-Excellence | default | Keep: its `.github/renovate/*.json5` includes, flux/helm/kubernetes patterns, k8s regex manager, `ignorePaths`, k8s-sidecar block. |
 | CowDogMoo/warpgate | default, go | Keep: single "go modules" group, jinzhu/copier pin. Drop: indirect-major disable (now in `go`). |
 | CowDogMoo/warpgate-mcp-server | default, go | Keep: test deps group. Drop: go.mod regex, go install manager. |
 | CowDogMoo/warpgate-templates | default | Keep: WARPGATE_VERSION manager. Drop: warpgate minor/patch automerge. |
-| l50/ansible-collection-arsenal | default, ansible-collection | Keep: roles `defaults/main.yml` asdf regex. Change: Galaxy and Actions majors no longer automerge. |
-| l50/ansible-collection-bulwark | default, ansible-collection | None. Change: Galaxy and Actions majors no longer automerge. |
+| l50/ansible-collection-arsenal | default, ansible-collection | Keep: roles `defaults/main.yml` asdf regex. Change: Galaxy majors no longer automerge. |
+| l50/ansible-collection-bulwark | default, ansible-collection | None. Change: Galaxy majors no longer automerge. |
 | l50/awsutils | default, go | Drop: own `autoMerge.json5` include, `config:base`, deprecated `matchPackagePatterns`, go install manager. |
-| l50/bbh-toolkit | default | None. Change: Actions and pre-commit majors no longer automerge. |
-| l50/dotfiles | default | Keep: npm and `ignorePaths` patterns, shell/Taskfile/test groups, `files/default-*` regex managers, Galaxy git-refs manager. Change: Actions and pre-commit majors no longer automerge. |
+| l50/bbh-toolkit | default | None. Change: pre-commit majors no longer automerge. |
+| l50/dotfiles | default | Keep: npm and `ignorePaths` patterns, shell/Taskfile/test groups, `files/default-*` regex managers, Galaxy git-refs manager. Change: pre-commit majors no longer automerge. |
 | l50/goproject | default, go | Drop: `config:base`, `platform`/`onboarding`/`requireConfig` (global-only settings), legacy `regexManagers`. Workflow: add `BOT_APP_ID`/`BOT_APP_PRIVATE_KEY` first. |
 | l50/homebrew-brewfile | default, go | Keep: `requirements.yaml` git-tags manager (rewritten as `customManagers`). Drop: same legacy keys as goproject. Workflow: add `BOT_APP_ID`/`BOT_APP_PRIVATE_KEY` first. |
-| l50/iem-decibel-monitor | default, rust | Keep: monthly Actions digest batching. Drop: RUST_VERSION manager, rust-toolchain group, lock file maintenance, the automerge catch-alls. Change: Actions majors no longer automerge. |
+| l50/iem-decibel-monitor | default, rust | Keep: monthly Actions digest batching. Drop: RUST_VERSION manager, rust-toolchain group, lock file maintenance, the automerge catch-alls. |
 | l50/personal-agents | default, go | Keep: annotation manager for `run:` pins and envs other than GO/PYTHON_VERSION. |
 | l50/personal-skills | default | Keep: skill-evals workflow no-automerge. |
 | l50/signal-triage | default, go | None. |

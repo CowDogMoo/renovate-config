@@ -85,8 +85,9 @@ The default preset:
 - extends `config:recommended`, `:semanticCommits`, `:enablePreCommit`,
   `:disableRateLimiting` and `helpers:pinGitHubActionDigests`
 - automerges minor, patch, digest and pin updates for every manager through PRs
-  with GitHub's native automerge, so required checks gate every merge; majors
-  wait for review
+  with GitHub's native automerge, so required checks gate every merge
+- automerges GitHub Actions majors the same way; majors for every other
+  manager, including pre-commit and Galaxy, wait for review
 - holds each release for 3 days (`minimumReleaseAge`) and opens no branch until
   that has passed (`internalChecksFilter: strict`). Releases without a
   timestamp are let through and reported on the dashboard
@@ -118,8 +119,8 @@ later `packageRules` entry wins. Keep only what is specific to the repo.
       automerge: false,
     },
     {
-      description: 'Automerge GitHub Actions majors in this repo',
-      matchManagers: ['github-actions'],
+      description: 'Automerge pre-commit majors in this repo',
+      matchManagers: ['pre-commit'],
       matchUpdateTypes: ['major'],
       automerge: true,
     },
