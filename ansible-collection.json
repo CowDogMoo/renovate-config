@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  // Ansible collections: github>CowDogMoo/renovate-config:ansible-collection
+  // PYTHON_VERSION, the Python 3.15 block and .hooks grouping come from the default preset.
+  "description": "Ansible collections: Galaxy dependencies in one PR and TASK_VERSION tracked in workflows",
+  "packageRules": [
+    {
+      "description": "Group Ansible Galaxy collection and role updates",
+      "matchManagers": ["ansible-galaxy"],
+      "groupName": "ansible-dependencies"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track TASK_VERSION envs in GitHub Actions workflows",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": ["TASK_VERSION:\\s*[\"']?v?(?<currentValue>\\d+\\.\\d+\\.\\d+)[\"']?"],
+      "depNameTemplate": "task",
+      "packageNameTemplate": "go-task/task",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)$"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  // This repo eats its own default preset so its action pins stay current.
+  extends: ['local>CowDogMoo/renovate-config'],
+}

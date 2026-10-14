@@ -1,0 +1,134 @@
+---
+# Reusable Renovate run. Callers keep only their trigger and secrets:
+#
+#   jobs:
+#     renovate:
+#       uses: CowDogMoo/renovate-config/.github/workflows/renovate.yaml@main
+#       secrets:
+#         BOT_APP_ID: ${{ secrets.BOT_APP_ID }}
+#         BOT_APP_PRIVATE_KEY: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+#
+# Pass the secrets explicitly: `secrets: inherit` does not cross
+# organizations, and l50 repos call this workflow from CowDogMoo.
+name: Renovate
+
+on:
+  workflow_call:
+    inputs:
+      dry-run:
+        description: Run Renovate with dryRun=full (no branches or PRs)
+        type: boolean
+        default: false
+      log-level:
+        description: Renovate LOG_LEVEL (debug, info, warn)
+        type: string
+        default: info
+      renovate-version:
+        description: Renovate image tag; empty uses the major pinned by renovatebot/github-action
+        type: string
+        default: ""
+      go-version:
+        description: Go version to install on the runner; empty skips setup-go
+        type: string
+        default: ""
+      go-installs:
+        description: Newline-separated module@version list to go install on the runner (needs go-version)
+        type: string
+        default: ""
+      python-version:
+        description: Python version to install on the runner; empty skips setup-python
+        type: string
+        default: ""
+      pip-installs:
+        description: Space-separated packages to pip install on the runner (needs python-version)
+        type: string
+        default: ""
+      allowed-post-upgrade-commands:
+        description: RENOVATE_ALLOWED_POST_UPGRADE_COMMANDS as a JSON array of regexes; empty allows none
+        type: string
+        default: ""
+    secrets:
+      BOT_APP_ID:
+        description: ID of the GitHub App Renovate acts as
+        required: true
+      BOT_APP_PRIVATE_KEY:
+        description: Private key of that GitHub App
+        required: true
+
+# Everything below authenticates with the GitHub App token, so the
+# workflow token gets no permissions at all.
+permissions: {}
+
+jobs:
+  renovate:
+    name: Renovate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Generate token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
+
+      - name: Resolve bot commit author
+        id: author
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          bot="${APP_SLUG}[bot]"
+          id="$(gh api "/users/${APP_SLUG}%5Bbot%5D" --jq .id)"
+          echo "git-author=${bot} <${id}+${bot}@users.noreply.github.com>" >> "$GITHUB_OUTPUT"
+
+      # Renovate itself runs in a container that cannot see runner tools.
+      # These installs exist only for steps a caller adds around this one.
+      - name: Set up Go
+        if: inputs.go-version != ''
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ inputs.go-version }}
+          cache: false
+
+      - name: Install Go tools
+        if: inputs.go-version != '' && inputs.go-installs != ''
+        env:
+          GO_INSTALLS: ${{ inputs.go-installs }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r pkg; do
+            [ -n "$pkg" ] && go install "$pkg"
+          done <<< "$GO_INSTALLS"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Python
+        if: inputs.python-version != ''
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install Python packages
+        if: inputs.python-version != '' && inputs.pip-installs != ''
+        env:
+          PIP_INSTALLS: ${{ inputs.pip-installs }}
+        run: |
+          set -euo pipefail
+          read -r -a pkgs <<< "$PIP_INSTALLS"
+          python3 -m pip install "${pkgs[@]}"
+
+      - name: Renovate
+        uses: renovatebot/github-action@f0f41e5f2e706165f6814b1d0f0d0e319de7d1d9 # v46.3.8
+        env:
+          LOG_LEVEL: ${{ inputs.log-level }}
+          RENOVATE_AUTODISCOVER: "true"
+          RENOVATE_AUTODISCOVER_FILTER: ${{ github.repository }}
+          RENOVATE_DRY_RUN: ${{ inputs.dry-run && 'full' || '' }}
+          RENOVATE_GIT_AUTHOR: ${{ steps.author.outputs.git-author }}
+          RENOVATE_PLATFORM: github
+          RENOVATE_PLATFORM_COMMIT: enabled
+          RENOVATE_ALLOWED_POST_UPGRADE_COMMANDS: ${{ inputs.allowed-post-upgrade-commands }}
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          renovate-version: ${{ inputs.renovate-version }}

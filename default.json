@@ -1,0 +1,69 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  // Shared base for CowDogMoo and l50 repos: github>CowDogMoo/renovate-config
+  "description": "Shared Renovate defaults: minor/patch/digest automerge via PRs, majors left for review, a 3-day release cooldown, and rebases whenever a branch falls behind its base branch",
+  "extends": [
+    "config:recommended",
+    ":disableRateLimiting",
+    ":semanticCommits",
+    ":enablePreCommit",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "labels": ["renovate"],
+  "dependencyDashboardTitle": "Renovate Dashboard 🤖",
+  "dependencyDashboardLabels": ["renovate-dashboard"],
+  "suppressNotifications": ["prIgnoreNotification"],
+  "commitBodyTable": true,
+  // Merge-queue repos turn "auto" into "conflicted" and then never rebase a
+  // branch that is merely behind, so the value is spelled out.
+  "rebaseWhen": "behind-base-branch",
+  "automergeType": "pr",
+  "platformAutomerge": true,
+  "minimumReleaseAge": "3 days",
+  // Several datasources (github-tags, golang-version, custom regex) publish no
+  // release timestamp; without this they would never clear minimumReleaseAge.
+  "minimumReleaseAgeBehaviour": "timestamp-optional",
+  "internalChecksFilter": "strict",
+  "packageRules": [
+    {
+      "description": "Automerge minor, patch, digest and pin updates for every manager; majors stay manual",
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "automerge": true
+    },
+    {
+      "description": "Block Python 3.15 until ansible-core supports it as a controller Python. Delete this rule once it does",
+      "matchDepNames": ["python"],
+      "allowedVersions": "!/^v?3\\.15(\\D|$)/"
+    },
+    {
+      "description": "One PR for every Go toolchain bump: go.mod go/toolchain directives, GO_VERSION envs and setup-go go-version, so a Go bump never splits into PRs that each fail alone",
+      "matchDatasources": ["golang-version", "github-releases"],
+      "matchPackageNames": ["go", "golang", "actions/go-versions"],
+      "groupName": "golang"
+    },
+    {
+      "description": "One PR for the pre-commit hook toolchain pinned in .hooks/requirements.txt",
+      "matchManagers": ["pip_requirements"],
+      "matchFileNames": [".hooks/requirements.txt"],
+      "groupName": "hook requirements"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track GO_VERSION envs in GitHub Actions workflows (grouped with go.mod by the golang rule above)",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": ["GO_VERSION:\\s*[\"']?(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)[\"']?"],
+      "depNameTemplate": "go",
+      "datasourceTemplate": "golang-version"
+    },
+    {
+      "customType": "regex",
+      "description": "Track PYTHON_VERSION envs in GitHub Actions workflows (the 3.15 block above applies)",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": ["PYTHON_VERSION:\\s*[\"']?(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)[\"']?"],
+      "depNameTemplate": "python",
+      "datasourceTemplate": "python-version"
+    }
+  ]
+}
