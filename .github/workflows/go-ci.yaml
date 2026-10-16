@@ -27,14 +27,6 @@ on:
         description: Run the tests job
         type: boolean
         default: true
-      runs-on:
-        description: Runner label for both jobs
-        type: string
-        default: ubuntu-latest
-      timeout-minutes:
-        description: Timeout for each job, in minutes
-        type: number
-        default: 30
       go-version-file:
         description: File setup-go reads the Go version from (go.mod, .go-version, .tool-versions)
         type: string
@@ -63,10 +55,6 @@ on:
         description: Python version for pre-commit
         type: string
         default: "3.14"
-      pre-commit-version:
-        description: pre-commit version to pip install; empty installs the latest
-        type: string
-        default: ""
       go-linters:
         description: Install goimports, gocyclo, gocritic and golangci-lint for the dnephin/pre-commit-golang hooks
         type: boolean
@@ -79,10 +67,6 @@ on:
         description: go-critic version to go install (vX.Y.Z or latest)
         type: string
         default: latest
-      pre-commit-skip:
-        description: Comma-separated hook ids to skip (pre-commit's SKIP variable)
-        type: string
-        default: ""
       pre-commit-command:
         description: Command that runs the hooks
         type: string
@@ -106,8 +90,8 @@ jobs:
   pre-commit:
     name: Pre-commit
     if: inputs.pre-commit
-    runs-on: ${{ inputs.runs-on }}
-    timeout-minutes: ${{ inputs.timeout-minutes }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     env:
@@ -182,9 +166,7 @@ jobs:
           done <<< "$GO_INSTALLS"
 
       - name: Install pre-commit
-        env:
-          PRE_COMMIT_VERSION: ${{ inputs.pre-commit-version }}
-        run: python3 -m pip install "pre-commit${PRE_COMMIT_VERSION:+==${PRE_COMMIT_VERSION}}"
+        run: python3 -m pip install pre-commit
 
       - name: Cache pre-commit environments
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -194,15 +176,14 @@ jobs:
 
       - name: Run pre-commit
         env:
-          SKIP: ${{ inputs.pre-commit-skip }}
           PRE_COMMIT_COMMAND: ${{ inputs.pre-commit-command }}
         run: bash -euo pipefail -c "$PRE_COMMIT_COMMAND"
 
   tests:
     name: Tests
     if: inputs.tests
-    runs-on: ${{ inputs.runs-on }}
-    timeout-minutes: ${{ inputs.timeout-minutes }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
     env:

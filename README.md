@@ -217,8 +217,6 @@ linter, fix it here once.
 | --- | --- | --- |
 | `pre-commit` | `true` | Run the pre-commit job |
 | `tests` | `true` | Run the tests job |
-| `runs-on` | `ubuntu-latest` | Runner label for both jobs |
-| `timeout-minutes` | `30` | Timeout for each job |
 | `go-version-file` | `go.mod` | File `setup-go` reads the Go version from |
 | `go-version` | empty | Go version to install; overrides `go-version-file` |
 | `apt-packages` | empty | Space-separated apt packages to install for pre-commit, such as `libgpgme-dev libbtrfs-dev` |
@@ -226,11 +224,9 @@ linter, fix it here once.
 | `test-apt-packages` | empty | Same as `apt-packages`, for the tests job |
 | `test-go-installs` | empty | Same as `go-installs`, for the tests job |
 | `python-version` | `3.14` | Python for pre-commit |
-| `pre-commit-version` | empty | pre-commit version to `pip install`; empty installs the latest |
 | `go-linters` | `true` | Install goimports, gocyclo, gocritic and golangci-lint; shfmt is always installed |
 | `golangci-lint-version` | `latest` | golangci-lint v2 version, `vX.Y.Z` or `latest` |
 | `gocritic-version` | `latest` | go-critic version, `vX.Y.Z` or `latest`; always built against the latest x/tools |
-| `pre-commit-skip` | empty | Comma-separated hook ids for pre-commit's `SKIP` |
 | `pre-commit-command` | `pre-commit run --all-files --show-diff-on-failure --color=always` | Command that runs the hooks |
 | `test-command` | `bash .hooks/run-go-tests.sh coverage` | Command that runs the tests |
 | `coverage-file` | `coverage-all.out` | Coverage profile to upload; empty skips the upload |
