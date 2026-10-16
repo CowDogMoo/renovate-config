@@ -1,0 +1,253 @@
+---
+# Reusable Go CI: pre-commit with the shared Go linters, and tests with an
+# optional Codecov upload. Callers keep only their triggers and the inputs
+# that differ:
+#
+#   jobs:
+#     go-ci:
+#       uses: CowDogMoo/renovate-config/.github/workflows/go-ci.yaml@main
+#       permissions:
+#         contents: read
+#       secrets:
+#         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+#
+# Every Go tool is built from source with the Go toolchain this workflow
+# installs, so a Go bump in the caller's go.mod also rebuilds the linters with
+# that toolchain. A fix for the next toolchain break goes here, once.
+name: Go CI
+
+on:
+  workflow_call:
+    inputs:
+      pre-commit:
+        description: Run the pre-commit job
+        type: boolean
+        default: true
+      tests:
+        description: Run the tests job
+        type: boolean
+        default: true
+      go-version-file:
+        description: File setup-go reads the Go version from (go.mod, .go-version, .tool-versions)
+        type: string
+        default: go.mod
+      go-version:
+        description: Go version to install; overrides go-version-file when set
+        type: string
+        default: ""
+      apt-packages:
+        description: Space-separated apt packages to install before pre-commit runs
+        type: string
+        default: ""
+      go-installs:
+        description: Newline-separated module@version list to go install before pre-commit runs
+        type: string
+        default: ""
+      test-apt-packages:
+        description: Space-separated apt packages to install before the tests run
+        type: string
+        default: ""
+      test-go-installs:
+        description: Newline-separated module@version list to go install before the tests run
+        type: string
+        default: ""
+      python-version:
+        description: Python version for pre-commit
+        type: string
+        default: "3.14"
+      go-linters:
+        description: Install goimports, gocyclo, gocritic and golangci-lint for the dnephin/pre-commit-golang hooks
+        type: boolean
+        default: true
+      golangci-lint-version:
+        description: golangci-lint v2 version to go install (vX.Y.Z or latest)
+        type: string
+        default: latest
+      gocritic-version:
+        description: go-critic version to go install (vX.Y.Z or latest)
+        type: string
+        default: latest
+      pre-commit-command:
+        description: Command that runs the hooks
+        type: string
+        default: pre-commit run --all-files --show-diff-on-failure --color=always
+      test-command:
+        description: Command that runs the tests and writes coverage-file
+        type: string
+        default: bash .hooks/run-go-tests.sh coverage
+      coverage-file:
+        description: Coverage profile to upload to Codecov; empty skips the upload
+        type: string
+        default: coverage-all.out
+    secrets:
+      CODECOV_TOKEN:
+        description: Codecov upload token; the upload is skipped without it
+        required: false
+
+permissions: {}
+
+jobs:
+  pre-commit:
+    name: Pre-commit
+    if: inputs.pre-commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Checkout git repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Set up Go
+        id: go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ inputs.go-version }}
+          go-version-file: ${{ inputs.go-version == '' && inputs.go-version-file || '' }}
+          check-latest: true
+
+      - name: Install apt packages
+        if: inputs.apt-packages != ''
+        env:
+          APT_PACKAGES: ${{ inputs.apt-packages }}
+        run: |
+          set -euo pipefail
+          read -r -a pkgs <<< "$APT_PACKAGES"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "${pkgs[@]}"
+
+      - name: Install Go tools
+        env:
+          GO_LINTERS: ${{ inputs.go-linters }}
+          GOLANGCI_LINT_VERSION: ${{ inputs.golangci-lint-version }}
+          GOCRITIC_VERSION: ${{ inputs.gocritic-version }}
+          GO_INSTALLS: ${{ inputs.go-installs }}
+        run: |
+          set -euo pipefail
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+          go install mvdan.cc/sh/v3/cmd/shfmt@latest
+
+          if [ "$GO_LINTERS" = "true" ]; then
+            go install golang.org/x/tools/cmd/goimports@latest
+            go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+            go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}"
+
+            # Build gocritic against the latest golang.org/x/tools rather than
+            # the version go-critic pins. An x/tools that predates the Go
+            # toolchain cannot type-check its code, and gocritic then reports
+            # false findings (go-critic v0.15.0 under Go 1.27 flagged
+            # sloppyTypeAssert and caseOrder).
+            mod="$(mktemp -d)"
+            (
+              cd "$mod"
+              go mod init gocritic-install
+              go get "github.com/go-critic/go-critic/cmd/gocritic@${GOCRITIC_VERSION}" golang.org/x/tools@latest
+              go install github.com/go-critic/go-critic/cmd/gocritic
+            )
+            rm -rf "$mod"
+          fi
+
+          while IFS= read -r pkg; do
+            pkg="${pkg%%#*}"
+            pkg="$(echo "$pkg" | xargs)"
+            if [ -n "$pkg" ]; then
+              go install "$pkg"
+            fi
+          done <<< "$GO_INSTALLS"
+
+      - name: Install pre-commit
+        run: python3 -m pip install pre-commit
+
+      - name: Cache pre-commit environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: Run pre-commit
+        env:
+          PRE_COMMIT_COMMAND: ${{ inputs.pre-commit-command }}
+        run: bash -euo pipefail -c "$PRE_COMMIT_COMMAND"
+
+  tests:
+    name: Tests
+    if: inputs.tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Checkout git repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ inputs.go-version }}
+          go-version-file: ${{ inputs.go-version == '' && inputs.go-version-file || '' }}
+          check-latest: true
+
+      - name: Install apt packages
+        if: inputs.test-apt-packages != ''
+        env:
+          APT_PACKAGES: ${{ inputs.test-apt-packages }}
+        run: |
+          set -euo pipefail
+          read -r -a pkgs <<< "$APT_PACKAGES"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends "${pkgs[@]}"
+
+      - name: Install Go tools
+        if: inputs.test-go-installs != ''
+        env:
+          GO_INSTALLS: ${{ inputs.test-go-installs }}
+        run: |
+          set -euo pipefail
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          while IFS= read -r pkg; do
+            pkg="${pkg%%#*}"
+            pkg="$(echo "$pkg" | xargs)"
+            if [ -n "$pkg" ]; then
+              go install "$pkg"
+            fi
+          done <<< "$GO_INSTALLS"
+
+      # Test suites commit to throwaway repos and need an identity.
+      - name: Set up git identity
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+
+      - name: Run tests
+        env:
+          TEST_COMMAND: ${{ inputs.test-command }}
+        run: bash -euo pipefail -c "$TEST_COMMAND"
+
+      # Only this step sees the token, so the test command never does.
+      - name: Check for a Codecov token
+        id: codecov
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: echo "enabled=$([ -n "$CODECOV_TOKEN" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload coverage to Codecov
+        if: steps.codecov.outputs.enabled == 'true' && inputs.coverage-file != ''
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: ${{ inputs.coverage-file }}
+          token: ${{ secrets.CODECOV_TOKEN }}
