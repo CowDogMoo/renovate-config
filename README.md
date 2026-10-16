@@ -1,9 +1,11 @@
 # renovate-config
 
-Shared Renovate presets and a reusable Renovate workflow for CowDogMoo and l50
-repos. A repo extends the presets it needs and swaps its copy-pasted Renovate
-workflow for a short caller workflow. [docs/migration.md](docs/migration.md)
-has the inventory this was built from and the per-repo migration plan.
+Shared Renovate presets, a reusable Renovate workflow and a reusable Go CI
+workflow for CowDogMoo and l50 repos. A repo extends the presets it needs and
+swaps its copy-pasted Renovate, pre-commit and test workflows for short caller
+workflows. [docs/migration.md](docs/migration.md) has the Renovate inventory
+and migration plan; [docs/go-ci-migration.md](docs/go-ci-migration.md) has the
+same for Go CI.
 
 ## Use it
 
@@ -134,7 +136,7 @@ To drop a single preset rule, override what it sets: set `rebaseWhen`, set
 `PYTHON_VERSION` again with a local `# renovate:` annotation manager, or
 Renovate extracts the same value twice.
 
-## Workflow inputs
+## Renovate workflow inputs
 
 | Input | Default | Purpose |
 | --- | --- | --- |
@@ -154,6 +156,93 @@ unless a step you add around the workflow needs them. Renovate installs the
 tools it needs inside the container on its own.
 
 Secrets: `BOT_APP_ID` and `BOT_APP_PRIVATE_KEY`, both required.
+
+## Go CI workflow
+
+[.github/workflows/go-ci.yaml](.github/workflows/go-ci.yaml) runs the
+pre-commit and test jobs every Go repo used to carry its own copy of. It
+installs Go from the repo's `go.mod`, builds shfmt and the Go linters the
+`dnephin/pre-commit-golang` hooks call (goimports, gocyclo, gocritic,
+golangci-lint) from source, runs `pre-commit run --all-files`, then runs
+`.hooks/run-go-tests.sh coverage` and uploads `coverage-all.out` to Codecov.
+
+`.github/workflows/go-ci.yaml` in the calling repo:
+
+```yaml
+---
+name: Go CI
+
+on:
+  merge_group:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  schedule:
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  go-ci:
+    uses: CowDogMoo/renovate-config/.github/workflows/go-ci.yaml@main
+    permissions:
+      contents: read
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+```
+
+Pass `CODECOV_TOKEN` explicitly, for the same cross-organization reason as the
+Renovate secrets. Without it the tests still run and the upload is skipped.
+The checks report as `go-ci / Pre-commit` and `go-ci / Tests`, so update any
+ruleset or branch protection that requires the old check names.
+
+Why the tools are built from source: a linter binary built with an older Go,
+or against a `golang.org/x/tools` that predates the toolchain, misreads code
+written for the new toolchain. go-critic v0.15.0 under Go 1.27 reported false
+`sloppyTypeAssert` and `caseOrder` findings because its pinned x/tools could
+not type-check Go 1.27 code. The workflow builds every tool with the Go it
+just installed and builds gocritic against the latest x/tools, so a Go bump in
+`go.mod` rebuilds the linters to match. When the next toolchain bump breaks a
+linter, fix it here once.
+
+### Go CI inputs
+
+| Input | Default | Purpose |
+| --- | --- | --- |
+| `pre-commit` | `true` | Run the pre-commit job |
+| `tests` | `true` | Run the tests job |
+| `runs-on` | `ubuntu-latest` | Runner label for both jobs |
+| `timeout-minutes` | `30` | Timeout for each job |
+| `go-version-file` | `go.mod` | File `setup-go` reads the Go version from |
+| `go-version` | empty | Go version to install; overrides `go-version-file` |
+| `apt-packages` | empty | Space-separated apt packages to install for pre-commit, such as `libgpgme-dev libbtrfs-dev` |
+| `go-installs` | empty | Newline-separated `module@version` list to `go install` for pre-commit, such as GoReleaser; `#` starts a comment |
+| `test-apt-packages` | empty | Same as `apt-packages`, for the tests job |
+| `test-go-installs` | empty | Same as `go-installs`, for the tests job |
+| `python-version` | `3.14` | Python for pre-commit |
+| `pre-commit-version` | empty | pre-commit version to `pip install`; empty installs the latest |
+| `go-linters` | `true` | Install goimports, gocyclo, gocritic and golangci-lint; shfmt is always installed |
+| `golangci-lint-version` | `latest` | golangci-lint v2 version, `vX.Y.Z` or `latest` |
+| `gocritic-version` | `latest` | go-critic version, `vX.Y.Z` or `latest`; always built against the latest x/tools |
+| `pre-commit-skip` | empty | Comma-separated hook ids for pre-commit's `SKIP` |
+| `pre-commit-command` | `pre-commit run --all-files --show-diff-on-failure --color=always` | Command that runs the hooks |
+| `test-command` | `bash .hooks/run-go-tests.sh coverage` | Command that runs the tests |
+| `coverage-file` | `coverage-all.out` | Coverage profile to upload; empty skips the upload |
+
+Secrets: `CODECOV_TOKEN`, optional. Only the upload step sees it, not the test
+command.
+
+Environment variables set in the caller do not reach a reusable workflow. A
+command that needs one sets it inline, such as
+`pre-commit-command: TASK_X_REMOTE_TASKFILES=1 task -y pre-commit:run-hooks`.
+Jobs the shared workflow does not cover, such as AWS OIDC tests or schema
+checks, stay in the calling repo as their own jobs next to `go-ci`.
 
 ## This repo
 
