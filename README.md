@@ -250,6 +250,9 @@ runs it through the reusable workflow every 6 hours. It needs `BOT_APP_ID` and
 
 ## Validate changes
 
+[.github/workflows/validate.yaml](.github/workflows/validate.yaml) runs
+these checks on every pull request and merge queue entry. To run them locally:
+
 ```bash
 for f in default.json go.json ansible-collection.json rust.json .github/renovate.json5; do
   npx --yes --package renovate -- renovate-config-validator --strict --no-global "$f"
