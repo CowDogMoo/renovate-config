@@ -109,6 +109,7 @@ jobs:
           python-version: ${{ inputs.python-version }}
 
       - name: Set up Go
+        id: go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ inputs.go-version }}
@@ -172,7 +173,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
-          key: pre-commit-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: pre-commit-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
       - name: Run pre-commit
         env:

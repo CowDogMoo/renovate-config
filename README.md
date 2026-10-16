@@ -237,6 +237,8 @@ command.
 Environment variables set in the caller do not reach a reusable workflow. A
 command that needs one sets it inline, such as
 `pre-commit-command: TASK_X_REMOTE_TASKFILES=1 task -y pre-commit:run-hooks`.
+The workflow does not install Task, so that caller also adds
+`github.com/go-task/task/v3/cmd/task@vX.Y.Z` to `go-installs`.
 Jobs the shared workflow does not cover, such as AWS OIDC tests or schema
 checks, stay in the calling repo as their own jobs next to `go-ci`.
 
