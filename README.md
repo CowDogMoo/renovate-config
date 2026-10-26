@@ -69,6 +69,62 @@ behind `BOT_APP_ID` must be installed on the calling repo. The workflow asks
 GitHub for the App's bot user, so `BOT_USERNAME` and `BOT_USER_ID` are no
 longer needed.
 
+### Branch ruleset
+
+The default preset merges through GitHub's native automerge
+(`platformAutomerge`), which needs two things on the consumer repo:
+
+1. "Allow auto-merge" turned on in the repo settings.
+2. An active ruleset on the default branch that requires status checks.
+
+Without a required check, a Renovate PR is already mergeable, so GitHub refuses
+to queue it for auto-merge. Renovate then merges it itself on a later run, one
+PR per run, while the rest rebase and wait for the next scheduled run.
+
+Give every repo the same ruleset. This is the one on l50/punch, l50/goproject
+and l50/signal-triage:
+
+```json
+{
+  "name": "Renovate Bot",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] }
+  },
+  "rules": [
+    { "type": "deletion" },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": true,
+        "required_status_checks": [
+          { "context": "go-ci / Pre-commit", "integration_id": 15368 },
+          { "context": "go-ci / Tests", "integration_id": 15368 },
+          { "context": "🚨 Semgrep Analysis", "integration_id": 15368 }
+        ]
+      }
+    }
+  ],
+  "bypass_actors": [
+    { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
+  ]
+}
+```
+
+`integration_id` 15368 is GitHub Actions and `actor_id` 5 is the repository
+admin role. Save it as `ruleset.json` and create it with:
+
+```bash
+gh api --method POST repos/OWNER/REPO/rulesets --input ruleset.json
+```
+
+The required check names are per repo; the ones above are the jobs a Go repo
+gets from the Go CI workflow. Org repos may add a `merge_queue` rule, as
+CowDogMoo/warpgate does. Personal-account repos cannot use merge queues, and
+private personal repos need a paid plan for rulesets at all.
+
 ## Presets
 
 Preset files are JSON with comments (`.json`), because Renovate looks up
