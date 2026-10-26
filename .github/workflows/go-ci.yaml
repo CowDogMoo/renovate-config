@@ -31,6 +31,13 @@ on:
         description: File setup-go reads the Go version from (go.mod, .go-version, .tool-versions)
         type: string
         default: go.mod
+      cache-dependency-path:
+        description: >-
+          go.sum path(s) the Go module cache keys on; defaults to the go.sum
+          beside go-version-file when it names a go.mod, else setup-go's
+          root go.sum
+        type: string
+        default: ""
       go-version:
         description: Go version to install; overrides go-version-file when set
         type: string
@@ -108,12 +115,27 @@ jobs:
         with:
           python-version: ${{ inputs.python-version }}
 
+      - name: Resolve Go cache dependency path
+        id: go-cache
+        env:
+          CACHE_DEPENDENCY_PATH: ${{ inputs.cache-dependency-path }}
+          GO_VERSION: ${{ inputs.go-version }}
+          GO_VERSION_FILE: ${{ inputs.go-version-file }}
+        run: |
+          path="${CACHE_DEPENDENCY_PATH}"
+          if [[ -z "${path}" && -z "${GO_VERSION}" && "$(basename "${GO_VERSION_FILE}")" == "go.mod" ]]; then
+            path="$(dirname "${GO_VERSION_FILE}")/go.sum"
+            path="${path#./}"
+          fi
+          echo "path=${path}" >> "${GITHUB_OUTPUT}"
+
       - name: Set up Go
         id: go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ inputs.go-version }}
           go-version-file: ${{ inputs.go-version == '' && inputs.go-version-file || '' }}
+          cache-dependency-path: ${{ steps.go-cache.outputs.path }}
           check-latest: true
 
       - name: Install apt packages
@@ -195,11 +217,26 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Resolve Go cache dependency path
+        id: go-cache
+        env:
+          CACHE_DEPENDENCY_PATH: ${{ inputs.cache-dependency-path }}
+          GO_VERSION: ${{ inputs.go-version }}
+          GO_VERSION_FILE: ${{ inputs.go-version-file }}
+        run: |
+          path="${CACHE_DEPENDENCY_PATH}"
+          if [[ -z "${path}" && -z "${GO_VERSION}" && "$(basename "${GO_VERSION_FILE}")" == "go.mod" ]]; then
+            path="$(dirname "${GO_VERSION_FILE}")/go.sum"
+            path="${path#./}"
+          fi
+          echo "path=${path}" >> "${GITHUB_OUTPUT}"
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ inputs.go-version }}
           go-version-file: ${{ inputs.go-version == '' && inputs.go-version-file || '' }}
+          cache-dependency-path: ${{ steps.go-cache.outputs.path }}
           check-latest: true
 
       - name: Install apt packages

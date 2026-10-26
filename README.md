@@ -218,6 +218,7 @@ linter, fix it here once.
 | `pre-commit` | `true` | Run the pre-commit job |
 | `tests` | `true` | Run the tests job |
 | `go-version-file` | `go.mod` | File `setup-go` reads the Go version from |
+| `cache-dependency-path` | derived | `go.sum` path(s) the Go module cache keys on; defaults to the `go.sum` beside `go-version-file` when it names a `go.mod` (for example `magefiles/go.sum`) |
 | `go-version` | empty | Go version to install; overrides `go-version-file` |
 | `apt-packages` | empty | Space-separated apt packages to install for pre-commit, such as `libgpgme-dev libbtrfs-dev` |
 | `go-installs` | empty | Newline-separated `module@version` list to `go install` for pre-commit, such as GoReleaser; `#` starts a comment |
