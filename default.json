@@ -37,7 +37,7 @@
       "automerge": true
     },
     {
-      "description": "Block Python 3.15 until ansible-core supports it as a controller Python. Delete this rule once it does",
+      "description": "Block Python 3.15: ansible-core fails on 3.15.0 with `AttributeError: module 'dataclasses' has no attribute '_is_type'`. Lift this rule once ansible-core supports 3.15 as a controller Python",
       "matchDepNames": ["python"],
       "allowedVersions": "!/^v?3\\.15(\\D|$)/"
     },
