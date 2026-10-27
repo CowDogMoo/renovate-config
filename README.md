@@ -143,7 +143,10 @@ The default preset:
 - extends `config:recommended`, `:semanticCommits`, `:enablePreCommit`,
   `:disableRateLimiting` and `helpers:pinGitHubActionDigests`
 - automerges minor, patch, digest and pin updates for every manager through PRs
-  with GitHub's native automerge, so required checks gate every merge
+  with GitHub's native automerge, so required checks gate every merge. The rule
+  has no `matchManagers`, so it also covers `cargo`, `npm`, `poetry`,
+  `pip_requirements`, `dockerfile`, `docker-compose` and `ansible-galaxy`,
+  which the old per-repo allowlists left out
 - automerges GitHub Actions majors the same way; majors for every other
   manager, including pre-commit and Galaxy, wait for review
 - holds each release for 3 days (`minimumReleaseAge`) and opens no branch until
@@ -152,7 +155,12 @@ The default preset:
 - rebases a branch whenever it falls behind its base branch. The value is set
   explicitly because merge-queue repos turn `auto` into `conflicted`, which
   never rebases a branch that is only behind
-- blocks Python 3.15 until ansible-core supports it as a controller Python
+- blocks Python 3.15, because ansible-core fails on 3.15.0 with
+  `AttributeError: module 'dataclasses' has no attribute '_is_type'`. The rule
+  matches every dependency named `python`: `PYTHON_VERSION` envs,
+  `setup-python` versions, `python` Docker images and `# renovate:`-annotated
+  pins. It only stops new updates, so a repo already on 3.15.0 has to move
+  back by hand. Lift the rule once ansible-core supports 3.15
 - puts every Go toolchain bump in one `golang` PR: the go.mod `go` and
   `toolchain` lines, `GO_VERSION` envs in workflows and `setup-go`
   `go-version` values
